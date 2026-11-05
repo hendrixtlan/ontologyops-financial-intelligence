@@ -6,7 +6,7 @@
 
 This release is intentionally **local-first**: an executable Python + SQLite payment event pipeline, a genuine
 Databricks Unity Catalog Metric View YAML artifact, an optional Genie One MCP client, and semantic regression that
-blocks incompatible business-definition changes. It does **not** claim that a live Databricks workspace was tested.
+blocks incompatible business-definition changes.
 
 ## Five-minute quick start
 
