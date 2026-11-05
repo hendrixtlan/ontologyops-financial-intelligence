@@ -1,0 +1,62 @@
+{
+  "counts": {
+    "bronze_events": 4593,
+    "current_transactions": 1600,
+    "partitions": 1,
+    "quarantined": 1
+  },
+  "effects": {
+    "current_state_updated": 4436,
+    "event_replay": 95,
+    "late_event_preserved": 157,
+    "offset_replay": 1,
+    "quarantined": 1
+  },
+  "events_seen": 4690,
+  "evidence": {
+    "baseline_date": "2026-11-02",
+    "baseline_rate": 0.07296137339055794,
+    "causal_attribution": "NOT ESTABLISHED \u2014 synthetic correlation only",
+    "currency": "USD",
+    "difference_percentage_points": 41.4,
+    "failed_amount_minor": 4464788,
+    "failed_transactions": 112,
+    "incident_date": "2026-11-03",
+    "incident_rate": 0.48695652173913045,
+    "pending_excluded": 37,
+    "scenario": "MX-US settlement failures on ACQ_B",
+    "severity": "investigate"
+  },
+  "mode": "offline_debezium_envelope_replay",
+  "rates": [
+    {
+      "acquirer_id": "ACQ_B",
+      "business_date": "2026-11-02",
+      "corridor": "MX-US",
+      "currency": "USD",
+      "failed": 17,
+      "failed_amount_minor": 600191,
+      "failure_rate": 0.07296137339055794,
+      "pending": 33,
+      "settled": 216
+    },
+    {
+      "acquirer_id": "ACQ_B",
+      "business_date": "2026-11-03",
+      "corridor": "MX-US",
+      "currency": "USD",
+      "failed": 112,
+      "failed_amount_minor": 4464788,
+      "failure_rate": 0.48695652173913045,
+      "pending": 37,
+      "settled": 118
+    }
+  ],
+  "semantic_regression": {
+    "engine": "SQLite executable SQL expression; separate from Databricks engine integration",
+    "groups_checked": 8,
+    "metric": "settlement_failure_rate",
+    "mismatches": [],
+    "status": "pass"
+  }
+}

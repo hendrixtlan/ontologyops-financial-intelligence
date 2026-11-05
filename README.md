@@ -1,110 +1,190 @@
-# OntologyOps: Autonomous Financial Intelligence · V0.1
+# OntologyOps — Autonomous Financial Intelligence · V0.2
 
-[![CI](https://img.shields.io/badge/tests-pytest-lightgrey)](#verify)
+**A GitHub-ready, evidence-based portfolio implementation of PostgreSQL CDC,
+Kafka, Databricks Lakeflow AUTO CDC, certified Genie Ontology semantics,
+and a guarded LangGraph investigation workflow.**
 
-**A reproducible portfolio vertical slice for Databricks Genie Ontology, certified metrics and semantic drift.**
+This repo extends v0.1 rather than replacing it. V0.1's semantic contracts,
+metric view, baseline dataset, drift regression, tests and snapshot notebook
+remain intact.
 
-This release is intentionally **local-first**: an executable Python + SQLite payment event pipeline, a genuine
-Databricks Unity Catalog Metric View YAML artifact, an optional Genie One MCP client, and semantic regression that
-blocks incompatible business-definition changes.
+## Quick start — runs without Docker or Databricks
 
-## Five-minute quick start
-
-Python 3.10+ required. From repository root:
+Python 3.10+; from the repository root:
 
 ```bash
 python -m venv .venv
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 # macOS/Linux: source .venv/bin/activate
 python -m pip install -e '.[dev]'
-ontologyops demo
+ontologyops stream-demo
+ontologyops investigate --engine reference
 pytest -q
 ```
 
-The demo produces `output/investigation.md` and `output/demo_result.json`.
-It runs completely offline, no cloud account required.
+The local CDC simulator replays **realistic Debezium JSON envelopes** with
+snapshot / create / replay / corrupted-message semantics into a transactional
+SQLite implementation. It does not open a network Kafka connection.
 
-## Verify
+The stream demo generates:
 
-```bash
-ontologyops seed --transactions 1600
-ontologyops ingest
-ontologyops build
-ontologyops metrics
-ontologyops evaluate
-ontologyops drift --candidate semantics/metric_views/payment_health.yaml
-ontologyops drift --candidate examples/invalid_payment_health.yaml  # expected exit code 2
-ontologyops render-sql > metric_view.sql
+- `output/phase2_stream_demo.json` — per-event outcome counts, quarantine, semantic regression and metric evidence.
+- `output/phase2_investigation.md` — grounded incident investigation with no causal overclaim.
+
+Sample test results for 1,600 synthetic transactions:
+
+| Verified offline property | Observation |
+|---|---:|
+| Unique payment events applied | 4,593 |
+| Current transactions | 1,600 |
+| Exact event-id replays deduplicated | 95 |
+| Late events preserved without overwriting newer states | 157 |
+| Corrupt messages quarantined | 1 |
+| Explicit offset replay ignored | 1 |
+| Certified metric regression | PASS |
+| Synthetic ACQ_B MX-US Nov 2 failure rate | 7.30% |
+| Synthetic ACQ_B MX-US Nov 3 failure rate | 48.70% |
+
+**The simulated failure spike is intentionally injected.** It is not evidence
+of an actual external acquirer outage or root cause. Failed transaction value
+is a proxy for exposure, not a confirmed loss.
+
+## Real streaming infrastructure — local Docker
+
+`docker-compose.yml` provisions:
+
+- PostgreSQL 16 with `wal_level=logical` and an append-only event ledger.
+- Redpanda (Kafka-compatible broker) on localhost:19092.
+- Debezium Connect with a PostgreSQL `pgoutput` connector, initial snapshot,
+  publication/slot, and the topic `ontologyops.public.payment_events`.
+- A Python consumer that atomically commits (event + current state + local
+  offset) to SQLite and acknowledges the broker only after the DB commit.
+
+**LOCAL DEV SECURITY ONLY:** compose uses plaintext example credentials and
+no TLS; do not expose the services to external networks.
+
+```powershell
+python -m pip install -e ".[dev,postgres,kafka]"
+docker compose up -d
+python scripts/register_connector.py
+ontologyops seed-postgres --transactions 1600
+ontologyops stream-consume --bootstrap localhost:19092 --max-records 4593
 ```
 
-The last example is an **intentional broken KPI**. It divides failures by `COUNT(*)`, which incorrectly
-includes pending payments. The drift gate catches the modified formula and the independent regression engine
-finds numeric mismatches. No semantic modification is ever applied automatically.
+See **[Full PowerShell walkthrough](docs/PHASE2_RUNBOOK.md)** for diagnostics,
+restart rules and resetting local data.
 
-## Architecture
+## Databricks Lakeflow + Genie One MCP
+
+`databricks/pipelines/payments_cdc.py` defines:
 
 ```text
-Synthetic payment events (JSONL)  --> local bronze (SQLite) --> dedup / latest state
-                                                     |
-                                                 silver (1 row/tx)
-                                                     |
-                                        gold_payment_outcomes (1 row/tx)
-                                                     |
-       Git semantic contract <----------+----------> UC Metric View YAML
-                 |                                      |
-       Drift + executable regression                 Genie Ontology
-                 |                                 (Databricks workspace)
-            Review gate                                    |
-                                             Genie One MCP / Unity Gateway
+Kafka Debezium envelopes
+  -> bronze_payment_cdc               (streaming)
+  -> parsed_payment_cdc               (temporary view)
+  -> cdc_validated + cdc_quarantine   (streaming)
+  -> silver_transactions              (Lakeflow AUTO CDC type 1)
+  -> gold_payment_outcomes            (materialized view)
+  -> Unity Catalog payment_health     (certified metric view 1.1)
+  -> Genie One / Genie Ontology       (workspace-managed)
+  -> Genie One MCP                    (read-only remote tool)
+  -> LangGraph investigation nodes   (optional remote invocation)
 ```
 
-**Monetary metric warning:** the certified view defines amount measures in minor units but cannot itself prevent
-an ad hoc user from removing the `currency` grouping. Always group by currency or use a separate approved FX
-conversion measure. Enforcing this restriction across all query surfaces is a next-phase governance task.
+There are **two distinct environments**: Docker on your PC and an Azure
+Databricks workspace. A remote Databricks pipeline cannot consume
+`localhost:19092`; configure a network-accessible Kafka endpoint, TLS/SASL,
+secrets and suitable workspace permissions. `resources/phase2-pipeline.yml` is
+an example Declarative Automation Bundle resource and must be validated in
+the target workspace before running.
 
-**Event semantics:** `event_id` is the replay key; `transaction_id` is the payment grain; latest event is
-chosen using `updated_at`, `event_sequence`, `ingested_at`, and `event_id` in descending order. Currency amounts
-are represented in integer minor units. Gold includes non-terminal latest states so erroneous denominator
-calculations are detectable.
+**The v0.1 snapshot job and the v0.2 pipeline both use
+`main.ontologyops.gold_payment_outcomes`. Do not run them concurrently.**
 
-**Business semantics:** settlement failure rate = `FAILED / (FAILED + SETTLED)`; returns NULL if there are
-no terminal attempts; pending and authorized states are excluded. Exposure is a proxy, not accounting loss.
+See [Phase 2 architecture](docs/PHASE2_ARCHITECTURE.md) and
+[Azure deployment runbook](docs/PHASE2_RUNBOOK.md).
 
-**Sample scenario:** on 2026-11-03, synthetic failures increase for ACQ_B on MX-US cross-border transactions.
-The investigation is observational, not causal attribution.
+## Investigation agent
 
-## Databricks deployment
+Offline, without LangGraph installation:
 
-Follow [Azure Databricks setup](docs/SETUP_DATABRICKS.md). This includes a PySpark/Delta notebook,
-Declarative Automation Bundle configuration, a metric-view DDL renderer, a business glossary for publication
-as a Unity Catalog Page, metric queries with `MEASURE()`, and an optional real Genie One MCP `genie_ask` call.
+```bash
+ontologyops investigate --engine reference
+```
 
-The UC Page and Genie Ontology inference happen **inside** Databricks; the Git content alone is not a
-configured ontology. For Phase 2, see [architecture and scope](docs/ARCHITECTURE.md).
+LangGraph (`StateGraph`) execution with the same certified nodes:
 
-## What is implemented vs planned
+```bash
+pip install -e '.[agents]'
+ontologyops investigate --engine langgraph
+```
 
-| Capability | V0.1 status |
+Opt-in remote Genie One through Unity Gateway:
+
+```bash
+pip install -e '.[agents,genie]'
+# Set DATABRICKS_TOKEN securely; do not store it in Git.
+ontologyops investigate --engine langgraph \
+  --genie-host https://YOUR-WORKSPACE.azuredatabricks.net \
+  --workspace-id YOUR_NUMERIC_ID \
+  --question 'Explain MX-US payment settlement failures on November 3, 2026'
+```
+
+The MCP adapter uses the **GA endpoint**
+`/ai-gateway/mcp-services/system.ai.genie_one_mcp?o=<workspace-id>`, invokes
+`genie_ask` and polls `genie_poll_response` for a completed remote result.
+Every MCP answer remains separately attributable and is not automatically
+mixed into financial totals. Prefer on-behalf-of-user OAuth (`ai-gateway`
+scope) in enterprise integrations; PAT usage is for a short-lived dev test.
+
+## Scope / verification status
+
+| Capability | Status |
 | --- | --- |
-| Synthetic payment source and deliberate outage | Executable locally |
-| Replay-safe latest-state silver and gold | Executable locally |
-| Versioned KPI and semantic drift | Executable locally |
-| Cross-check against independent reference | Executable locally |
-| Databricks Delta batch notebook | Provided; requires workspace validation |
-| UC Metric View YAML / generated DDL | Provided; requires workspace execution |
-| Genie One MCP client for `genie_ask` | Provided; requires credentials, permissions and follow-up polling |
-| Unity Catalog Page | Curated Markdown provided; manual publication required |
-| Kafka/Debezium real-time CDC | Phase 2 |
-| LangGraph, Neo4j, simulation, action engine | Future phases |
+| V0.1 batch KPI + semantic drift | Tested locally |
+| V0.2 Debezium-format event replay | Tested locally |
+| Transactional local offset and latest-state sink | Tested locally |
+| Malformed-event quarantine, out-of-order and replay tests | Tested locally |
+| Deterministic guarded investigation | Tested locally |
+| PostgreSQL + Debezium + Redpanda Docker environment | Code provided, not executed here |
+| Kafka consumer connecting to live broker | Code provided, not executed here |
+| Databricks Lakeflow AUTO CDC pipeline | Code provided, workspace validation outstanding |
+| Genie One MCP call with real remote poll | Code provided, credentials/workspace testing outstanding |
+| LangGraph compiled StateGraph | Code provided, optional runtime testing outstanding |
+| Cross-cloud streaming production benchmark | Not performed |
 
-## Technical references
+## Repository layout
 
-- [Genie Ontology](https://docs.databricks.com/aws/en/genie/genie-ontology)
-- [Genie One MCP](https://docs.databricks.com/aws/en/agents/mcp-tools/genie-mcp)
-- [Metric View YAML Reference](https://docs.databricks.com/aws/en/uc-semantics/metric-views/yaml-reference)
-- [Metric View Querying](https://docs.databricks.com/aws/en/uc-semantics/metric-views/query)
-- [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/settings)
+```text
+src/ontologyops/
+  streaming.py           # transactionally replay-safe CDC processing
+  cdc_demo.py            # no-Docker event-envelope streaming demo
+  stream_worker.py       # actual Kafka consumer (optional confluent-kafka)
+  postgres_seed.py       # actual PostgreSQL ledger writer (optional psycopg)
+  agents.py              # stateful evidence workflow + LangGraph runtime
+  genie_bridge.py        # GA Genie One MCP async ask/poll
+infra/postgres/001_schema.sql
+infra/debezium/connector.json
+docker-compose.yml
+scripts/register_connector.py
+resources/phase2-pipeline.yml
+databricks/pipelines/payments_cdc.py
+docs/PHASE2_ARCHITECTURE.md
+docs/PHASE2_RUNBOOK.md
+semantics/metric_views/payment_health.yaml
+contracts/settlement_failure_rate.json
+tests/test_streaming.py
+```
+
+## Sources and design reference
+
+- [Genie One MCP — GA server](https://docs.databricks.com/aws/en/agents/mcp-tools/genie-mcp)
+- [Lakeflow AUTO CDC](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes)
+- [Lakeflow Python API](https://docs.databricks.com/aws/en/ldp/developer/python-ref)
+- [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/)
+- [Debezium PostgreSQL CDC](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
 
 ## License
 
-MIT (synthetic datasets only; no real payment or personal data).
+MIT. All simulated transactions, merchant identifiers and acquirer identifiers
+are synthetic. No live financial transactions are performed.

@@ -1,12 +1,21 @@
 bundle:
   name: ontologyops_financial_intelligence
 
+include:
+  - resources/*.yml
+
 # Databricks Declarative Automation Bundle (formerly Asset Bundle).
 # Requires CLI authentication and a UC volume with the generated JSONL uploaded.
 variables:
   input_path:
     description: Governed Unity Catalog Volume path containing synthetic JSONL
     default: /Volumes/main/ontologyops/landing/raw_payment_events.jsonl
+  kafka_bootstrap:
+    description: Private Azure-reachable Kafka bootstrap servers (never localhost)
+    default: "CHANGE_ME_KAFKA_BROKER:9093"
+  kafka_sasl_jaas:
+    description: Sensitive Kafka SASL JAAS configuration (inject securely; never commit)
+    default: "CHANGE_ME_FROM_SECRET_MANAGER"
 
 resources:
   jobs:

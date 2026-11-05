@@ -1,0 +1,19 @@
+# Requires an Azure-reachable Kafka service. Never commit SASL credentials.
+resources:
+  pipelines:
+    ontologyops_cdc:
+      name: ontologyops-financial-cdc-${bundle.target}
+      catalog: main
+      schema: ontologyops
+      serverless: true
+      continuous: false
+      libraries:
+        - file:
+            path: ../databricks/pipelines/payments_cdc.py
+      configuration:
+        ontologyops.kafka.bootstrap_servers: ${var.kafka_bootstrap}
+        ontologyops.kafka.topic: ontologyops.public.payment_events
+        ontologyops.kafka.security_protocol: SASL_SSL
+        ontologyops.kafka.sasl_mechanism: PLAIN
+        ontologyops.kafka.sasl_jaas_config: ${var.kafka_sasl_jaas}
+        spark.sql.session.timeZone: UTC

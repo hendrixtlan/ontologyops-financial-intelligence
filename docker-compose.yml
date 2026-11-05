@@ -1,0 +1,55 @@
+# Security note: LOCAL-ONLY test credentials and publicly exposed dev ports.
+# Do not reuse this compose or its defaults for production environments.
+services:
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: localonly
+      POSTGRES_DB: payments
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"]
+    ports: ["127.0.0.1:5432:5432"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.10
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:19092
+    ports: ["127.0.0.1:19092:19092"]
+    volumes:
+      - rp_data:/var/lib/redpanda/data
+  connect:
+    image: quay.io/debezium/connect:3.3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    ports: ["127.0.0.1:8083:8083"]
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:9092
+      GROUP_ID: ontologyops-connect-local
+      CONFIG_STORAGE_TOPIC: ontologyops_connect_configs
+      OFFSET_STORAGE_TOPIC: ontologyops_connect_offsets
+      STATUS_STORAGE_TOPIC: ontologyops_connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: '1'
+      OFFSET_STORAGE_REPLICATION_FACTOR: '1'
+      STATUS_STORAGE_REPLICATION_FACTOR: '1'
+volumes:
+  pg_data:
+  rp_data:

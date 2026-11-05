@@ -36,11 +36,41 @@ def main(argv=None) -> int:
     genie.add_argument("--host", required=True)
     genie.add_argument("--workspace-id", required=True)
     genie.add_argument("--question", required=True)
+    stream = sub.add_parser("stream-demo", help="Replay Debezium CDC envelopes through replay-safe SQLite streaming sink")
+    stream.add_argument("--transactions", type=int, default=1600)
+    worker = sub.add_parser("stream-consume", help="Consume real Debezium Kafka topic from Docker/Redpanda")
+    worker.add_argument("--bootstrap", default="localhost:19092")
+    worker.add_argument("--topic", default="ontologyops.public.payment_events")
+    worker.add_argument("--max-records", type=int, default=0)
+    source = sub.add_parser("seed-postgres", help="Insert synthetic ledger events into real local PostgreSQL")
+    source.add_argument("--transactions", type=int, default=1600)
+    investigation = sub.add_parser("investigate", help="Run guarded investigation nodes (optional LangGraph + Genie)")
+    investigation.add_argument("--question", default="Why did MX-US settlement failures rise?")
+    investigation.add_argument("--engine", choices=["reference", "langgraph"], default="reference")
+    investigation.add_argument("--genie-host")
+    investigation.add_argument("--workspace-id")
     args = parser.parse_args(argv)
     if args.command == "seed":
         if args.transactions <= 0:
             parser.error("--transactions must be positive")
         output(write_events(args.events, args.transactions))
+    elif args.command == "stream-demo":
+        from .cdc_demo import run_demo
+        output(run_demo(args.db if args.db != DEFAULT_DB else ROOT / "data" / "generated" / "ontologyops_phase2.db", args.transactions))
+    elif args.command == "stream-consume":
+        from .stream_worker import run
+        output(run(args.bootstrap, args.topic,
+                   args.db if args.db != DEFAULT_DB else ROOT / "data" / "generated" / "ontologyops_phase2_live.db",
+                   args.max_records))
+    elif args.command == "seed-postgres":
+        from .postgres_seed import seed_postgres
+        output(seed_postgres(args.transactions))
+    elif args.command == "investigate":
+        from .agents import investigate
+        target = args.db
+        if target == DEFAULT_DB and (ROOT / "data" / "generated" / "ontologyops_phase2.db").exists():
+            target = ROOT / "data" / "generated" / "ontologyops_phase2.db"
+        output(investigate(args.question, target, args.engine, args.genie_host, args.workspace_id))
     elif args.command == "drift":
         result = detect_drift(args.candidate)
         output(result)

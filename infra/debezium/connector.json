@@ -1,0 +1,27 @@
+{
+  "name": "ontologyops-payments-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "localonly",
+    "database.dbname": "payments",
+    "topic.prefix": "ontologyops",
+    "plugin.name": "pgoutput",
+    "slot.name": "ontologyops_slot",
+    "publication.name": "ontologyops_publication",
+    "publication.autocreate.mode": "disabled",
+    "table.include.list": "public.payment_events",
+    "snapshot.mode": "initial",
+    "schema.history.internal.kafka.bootstrap.servers": "redpanda:9092",
+    "schema.history.internal.kafka.topic": "ontologyops.schema_history",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "heartbeat.interval.ms": "10000",
+    "tombstones.on.delete": "true"
+  }
+}

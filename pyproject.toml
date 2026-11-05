@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ontologyops-financial-intelligence"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ontology-grounded financial intelligence with executable semantic drift regression"
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6.0,<7"]
@@ -12,6 +12,10 @@ dependencies = ["PyYAML>=6.0,<7"]
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
 genie = ["mcp>=1.0,<3.0"]
+agents = ["langgraph>=0.5,<2"]
+kafka = ["confluent-kafka>=2.6,<3"]
+postgres = ["psycopg[binary]>=3.2,<4"]
+live = ["langgraph>=0.5,<2", "confluent-kafka>=2.6,<3", "psycopg[binary]>=3.2,<4", "mcp>=1.0,<3.0"]
 
 [project.scripts]
 ontologyops = "ontologyops.cli:main"
@@ -22,3 +26,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+# Phase-2 integration dependencies are intentionally optional: default install
+# remains offline and lightweight for CI / portfolio reviewers.
