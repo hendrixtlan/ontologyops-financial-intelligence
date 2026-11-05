@@ -1,0 +1,30 @@
+bundle:
+  name: ontologyops_financial_intelligence
+
+# Databricks Declarative Automation Bundle (formerly Asset Bundle).
+# Requires CLI authentication and a UC volume with the generated JSONL uploaded.
+variables:
+  input_path:
+    description: Governed Unity Catalog Volume path containing synthetic JSONL
+    default: /Volumes/main/ontologyops/landing/raw_payment_events.jsonl
+
+resources:
+  jobs:
+    ontologyops_reference_snapshot:
+      name: ontologyops-reference-snapshot-${bundle.target}
+      tasks:
+        - task_key: build_payment_lakehouse
+          notebook_task:
+            notebook_path: ./databricks/ingest_and_build.py
+            base_parameters:
+              input_path: ${var.input_path}
+              catalog: main
+              schema: ontologyops
+
+# Target host is inherited from the Databricks CLI profile.
+targets:
+  dev:
+    default: true
+    mode: development
+  prod:
+    mode: production

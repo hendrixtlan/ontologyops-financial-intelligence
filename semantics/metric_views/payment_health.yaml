@@ -1,0 +1,38 @@
+version: '1.1'
+comment: 'Controlled ontology of payment settlement outcomes. One row per latest payment transaction. Never aggregate monetary amounts across currencies.'
+source: main.ontologyops.gold_payment_outcomes
+fields:
+  - name: business_date
+    expr: source.business_date
+    comment: 'UTC business date of the latest payment status event.'
+  - name: corridor
+    expr: source.corridor
+    comment: 'Payment corridor; MX-US or MX-DOMESTIC.'
+  - name: acquirer_id
+    expr: source.acquirer_id
+    comment: 'Acquirer processing the payment.'
+  - name: currency
+    expr: source.currency
+    comment: 'ISO 4217 currency; partition monetary metrics by currency.'
+  - name: merchant_tier
+    expr: source.merchant_tier
+    comment: 'Merchant segment: enterprise, mid-market, or small-business.'
+measures:
+  - name: failed_settlements
+    expr: "SUM(CASE WHEN source.status = 'FAILED' THEN 1 ELSE 0 END)"
+    comment: 'Failed terminal settlement attempts.'
+  - name: settled_settlements
+    expr: "SUM(CASE WHEN source.status = 'SETTLED' THEN 1 ELSE 0 END)"
+    comment: 'Successfully settled terminal payment attempts.'
+  - name: attempted_settlements
+    expr: "SUM(CASE WHEN source.status IN ('FAILED', 'SETTLED') THEN 1 ELSE 0 END)"
+    comment: 'Terminal settlement attempts. Excludes PENDING and AUTHORIZED.'
+  - name: settlement_failure_rate
+    expr: "CAST(SUM(CASE WHEN source.status = 'FAILED' THEN 1 ELSE 0 END) AS DOUBLE) / NULLIF(SUM(CASE WHEN source.status IN ('FAILED', 'SETTLED') THEN 1 ELSE 0 END), 0)"
+    comment: 'Certified rate: failed / (failed + settled). NULL if no terminal attempts.'
+  - name: failed_amount_minor
+    expr: "SUM(CASE WHEN source.status = 'FAILED' THEN source.amount_minor ELSE 0 END)"
+    comment: 'Unsettled exposure in minor currency units; group by currency.'
+  - name: settled_amount_minor
+    expr: "SUM(CASE WHEN source.status = 'SETTLED' THEN source.amount_minor ELSE 0 END)"
+    comment: 'Settled gross volume in minor currency units; group by currency.'

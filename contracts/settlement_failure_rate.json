@@ -1,0 +1,17 @@
+{
+  "id": "payments.settlement_failure_rate",
+  "version": "1.0.0",
+  "owner": "payments-risk-governance",
+  "business_definition": "Failed terminal settlement attempts divided by failed plus settled terminal settlement attempts. Pending and authorized payments are excluded.",
+  "source": "main.ontologyops.gold_payment_outcomes",
+  "grain": ["business_date", "corridor", "acquirer_id", "currency"],
+  "numerator_statuses": ["FAILED"],
+  "denominator_statuses": ["FAILED", "SETTLED"],
+  "zero_denominator": "NULL",
+  "measure_name": "settlement_failure_rate",
+  "expression": "CAST(SUM(CASE WHEN source.status = 'FAILED' THEN 1 ELSE 0 END) AS DOUBLE) / NULLIF(SUM(CASE WHEN source.status IN ('FAILED', 'SETTLED') THEN 1 ELSE 0 END), 0)",
+  "guardrails": {
+    "no_cross_currency_amount_aggregation": true,
+    "approval_required_for_definition_updates": true
+  }
+}

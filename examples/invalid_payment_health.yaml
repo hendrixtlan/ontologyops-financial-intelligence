@@ -1,0 +1,15 @@
+version: '1.1'
+comment: 'Intentionally incorrect KPI: counts pending payments in denominator.'
+source: main.ontologyops.gold_payment_outcomes
+fields:
+  - name: business_date
+    expr: source.business_date
+  - name: corridor
+    expr: source.corridor
+  - name: acquirer_id
+    expr: source.acquirer_id
+  - name: currency
+    expr: source.currency
+measures:
+  - name: settlement_failure_rate
+    expr: "CAST(SUM(CASE WHEN source.status = 'FAILED' THEN 1 ELSE 0 END) AS DOUBLE) / NULLIF(COUNT(*), 0)"

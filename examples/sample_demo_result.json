@@ -1,0 +1,81 @@
+{
+  "bronze": {
+    "new_events": 4593,
+    "unique_events": 4593
+  },
+  "layers": {
+    "silver_transactions": 1600,
+    "gold_outcomes": 1600,
+    "statuses": {
+      "FAILED": 189,
+      "PENDING": 207,
+      "SETTLED": 1204
+    }
+  },
+  "semantic_regression": {
+    "metric": "settlement_failure_rate",
+    "groups_checked": 8,
+    "status": "pass",
+    "mismatches": [],
+    "engine": "SQLite executable SQL expression; separate from Databricks engine integration"
+  },
+  "intentional_drift": {
+    "candidate": "/mnt/data/ontologyops-financial-intelligence/examples/invalid_payment_health.yaml",
+    "contract_id": "payments.settlement_failure_rate",
+    "contract_version": "1.0.0",
+    "status": "blocked",
+    "findings": [
+      {
+        "code": "CERTIFIED_FORMULA_DRIFT",
+        "severity": "critical",
+        "detail": "Certified rate formula differs from governance contract"
+      },
+      {
+        "code": "MISSING_DIMENSIONS",
+        "severity": "high",
+        "detail": "Missing dimensions: merchant_tier"
+      },
+      {
+        "code": "MISSING_MEASURE",
+        "severity": "high",
+        "detail": "Missing measure: failed_settlements"
+      },
+      {
+        "code": "MISSING_MEASURE",
+        "severity": "high",
+        "detail": "Missing measure: settled_settlements"
+      },
+      {
+        "code": "MISSING_MEASURE",
+        "severity": "high",
+        "detail": "Missing measure: attempted_settlements"
+      },
+      {
+        "code": "MISSING_MEASURE",
+        "severity": "high",
+        "detail": "Missing measure: failed_amount_minor"
+      },
+      {
+        "code": "MISSING_MEASURE",
+        "severity": "high",
+        "detail": "Missing measure: settled_amount_minor"
+      }
+    ],
+    "approval_required": true,
+    "automatic_changes_applied": false
+  },
+  "investigation": {
+    "scenario": "MX-US settlement failures on ACQ_B",
+    "baseline_date": "2026-11-02",
+    "incident_date": "2026-11-03",
+    "baseline_rate": 0.07296137339055794,
+    "incident_rate": 0.48695652173913045,
+    "difference_percentage_points": 41.4,
+    "failed_transactions": 112,
+    "pending_excluded": 37,
+    "failed_amount_minor": 4464788,
+    "currency": "USD",
+    "severity": "investigate",
+    "causal_attribution": "NOT ESTABLISHED \u2014 synthetic correlation only"
+  }
+}
